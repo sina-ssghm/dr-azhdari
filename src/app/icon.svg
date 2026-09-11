@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="دکتر زهره اژدری">
+  <!--
+    The footer's brand badge, redrawn for 16px.
+
+    Two departures from that badge, both because of the size. Its olive-200
+    hairline ring is dropped: at 16px a half-pixel ring only blurs the edge it
+    is meant to define. And the leaf is set at roughly 60% of the diameter
+    rather than the badge's 27%, with a heavier stroke — the badge is read at
+    56px with a name beside it, this is read at 16px with nothing.
+
+    Colours are the tokens: olive-700 #4f5f3e and sand-100 #f7f5f0. Solid
+    rather than transparent so the mark holds its own shape against both a
+    light and a dark browser chrome.
+  -->
+  <circle cx="16" cy="16" r="16" fill="#4f5f3e" />
+  <g
+    transform="translate(1 1) scale(1.25)"
+    fill="none"
+    stroke="#f7f5f0"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M4.4 19.6C2.8 14 6 6.4 19.6 4.4c1.5 7.6-3.6 15.6-11.2 14.6" />
+    <path d="M4.4 19.6c3.6-4.6 7.7-8.2 12.3-10.3" />
+  </g>
+</svg>

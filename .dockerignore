@@ -1,0 +1,23 @@
+node_modules
+.next
+out
+build
+
+# Full-resolution photo masters — kept in the repo, never shipped in the image.
+assets-source
+
+# The intro video is bind-mounted from the host at runtime; copying it in
+# would add tens of megabytes to every build for no benefit.
+public/videos
+.git
+.gitignore
+.screenshots
+scripts
+npm-debug.log*
+.env
+.env*.local
+README.md
+.vscode
+.idea
+Dockerfile
+.dockerignore

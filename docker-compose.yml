@@ -1,0 +1,63 @@
+services:
+  web:
+    build:
+      context: .
+      args:
+        # Baked into the client bundle at build time.
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3100}
+    image: dr-azhdari-website:latest
+    container_name: dr-azhdari-web
+    restart: unless-stopped
+
+    ports:
+      - '${HOST_PORT:-3100}:3000'
+
+    environment:
+      NODE_ENV: production
+      # The practice is in Iran. Without this the container runs UTC and
+      # "has this slot already passed?" is judged 3.5 hours behind Tehran,
+      # so past appointments stay bookable for most of the morning.
+      TZ: Asia/Tehran
+      # Read at runtime. PostgreSQL lives OUTSIDE this compose project —
+      # use host.docker.internal to reach the host's native instance.
+      DATABASE_URL: ${DATABASE_URL}
+      # Signs the admin session cookie. Changing it invalidates all sessions.
+      SESSION_SECRET: ${SESSION_SECRET}
+      # Points the bot at a stand-in API so notification delivery can be
+      # exercised without a real Telegram bot. Empty in production.
+      TELEGRAM_API_URL: ${TELEGRAM_API_URL:-}
+
+    # Photography is bind-mounted rather than only baked into the image, so
+    # swapping a photo needs `docker compose restart` instead of a full rebuild.
+    volumes:
+      - ./public/images:/app/public/images:ro
+      # The intro video, mounted rather than baked in: it is tens of megabytes,
+      # and copying it into every image would slow each build for a file that
+      # never changes with the code.
+      - ./public/videos:/app/public/videos:ro
+      # Uploaded payment receipts. Kept on the host so they survive rebuilds,
+      # and outside /public so they are never served without authentication.
+      - ./data/receipts:/data/receipts
+      # Published article PDFs. Same arrangement, but served without
+      # authentication — a receipt is private, a published paper is not.
+      - ./data/articles:/data/articles
+
+    # Makes `host.docker.internal` resolve to the host on Linux daemons too.
+    # (Docker Desktop provides it already; this keeps the file portable to a VPS.)
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
+    # Probes the site itself, not the database: phase 1 serves fine without
+    # Postgres, so DB reachability is reported separately at /api/health.
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3

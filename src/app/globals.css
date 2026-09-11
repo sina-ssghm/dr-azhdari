@@ -1,0 +1,183 @@
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------ *
+ * Design tokens
+ * Sampled from the approved UI design. Everything visual in the site
+ * resolves back to a token here — do not hard-code hex values in JSX.
+ * ------------------------------------------------------------------ */
+@theme {
+  /* Warm neutrals — page, sections, cards */
+  --color-sand-50: #fbfaf8;
+  --color-sand-100: #f7f5f0;
+  --color-sand-200: #f2eee6;
+  --color-sand-300: #ebe6dc;
+  --color-sand-400: #e0dacc;
+  --color-sand-500: #cfc7b5;
+
+  /* Olive — the brand green used for CTAs and accents */
+  --color-olive-50: #f1f3ec;
+  --color-olive-100: #e1e5d8;
+  --color-olive-200: #c8d0b8;
+  --color-olive-400: #7c8a63;
+  --color-olive-500: #66754c;
+  --color-olive-600: #5a6b44;
+  --color-olive-700: #4f5f3e;
+  --color-olive-800: #435134;
+  --color-olive-900: #38442c;
+
+  /* Type */
+  --color-ink-900: #2a2a26;
+  --color-ink-700: #4a4842;
+  --color-ink-500: #6f6b62;
+  --color-ink-400: #8c887e;
+
+  --color-line: #e4dfd5;
+  --color-line-strong: #d5cec0;
+
+  --font-sans:
+    var(--font-vazirmatn), ui-sans-serif, system-ui, 'Segoe UI', Tahoma, sans-serif;
+
+  --radius-card: 1.25rem;
+  --radius-band: 1.75rem;
+
+  --shadow-soft: 0 1px 2px rgb(42 42 38 / 0.04), 0 8px 24px -12px rgb(42 42 38 / 0.1);
+  --shadow-lift: 0 2px 4px rgb(42 42 38 / 0.05), 0 18px 36px -18px rgb(42 42 38 / 0.18);
+  --shadow-nav: 0 2px 8px rgb(42 42 38 / 0.05), 0 16px 40px -24px rgb(42 42 38 / 0.22);
+  --shadow-btn: 0 6px 18px -8px rgb(79 95 62 / 0.6);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Indeterminate progress bar, shown while a filtered list is re-fetching.
+     Declared as an `--animate-*` theme key so Tailwind emits both the
+     `animate-indeterminate` utility and the keyframes; a bare `@utility`
+     block does not pull the keyframes into the bundle. */
+  --animate-indeterminate: indeterminate-slide 1.1s ease-in-out infinite;
+
+  @keyframes indeterminate-slide {
+    0% {
+      transform: translateX(-100%) scaleX(0.4);
+    }
+    50% {
+      transform: translateX(0) scaleX(0.7);
+    }
+    100% {
+      transform: translateX(100%) scaleX(0.4);
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Base
+ * ------------------------------------------------------------------ */
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-sand-50);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+    /* Persian text needs a little more leading than a Latin default. */
+    line-height: 1.85;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Note: do NOT enable Vazirmatn's `ss01` here — it substitutes Persian
+       glyphs for Latin digits, which would turn the phone number into
+       ۰۹۱۷۳۰۷۲۶۸۵. The design shows Latin digits for the phone, and Persian
+       digits elsewhere come from the copy itself. */
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    line-height: 1.45;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Vazirmatn sits slightly high in its em box; nudge headline optical balance. */
+  .font-display {
+    letter-spacing: -0.01em;
+  }
+
+  /* Tailwind v4's preflight leaves buttons at `cursor: default` to match the
+     browser default. Every button here is a real affordance, so restore the
+     pointer — otherwise clickable controls read as inert text. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  summary {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-olive-600);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background-color: var(--color-olive-100);
+    color: var(--color-olive-900);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Utilities
+ * ------------------------------------------------------------------ */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Scroll-reveal: elements start hidden and are released by <Reveal>. */
+@layer components {
+  [data-reveal] {
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 0.45s var(--ease-out-soft),
+      transform 0.45s var(--ease-out-soft);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  [data-reveal='shown'] {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* When JS is unavailable, a <noscript> block in the root layout overrides
+     the hidden state so content is never lost. */
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-reveal] {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
