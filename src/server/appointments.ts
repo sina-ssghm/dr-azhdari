@@ -11,11 +11,11 @@ export const SESSION_MINUTES = 60
 /**
  * Spacing between the start times offered inside a working span.
  *
- * Starts are anchored to the span's own start, not to the top of the hour: a
- * span beginning at 08:23 offers 08:23, 08:53, 09:23… The doctor's schedule
- * decides the grid, rather than the grid constraining the schedule.
+ * Starts are always on the hour. A span beginning at 08:23 first offers
+ * 09:00, keeping the public calendar simple and preventing half-hour slots.
+ * The working-hours boundaries can still be recorded to the minute.
  */
-export const SLOT_STEP_MINUTES = 30
+export const SLOT_STEP_MINUTES = 60
 
 export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
 
@@ -104,7 +104,8 @@ function openIntervals(spans: { starts: string; ends: string }[]): Interval[] {
 function candidateStarts(intervals: Interval[], duration: number): number[] {
   const starts: number[] = []
   for (const interval of intervals) {
-    for (let t = interval.from; t + duration <= interval.to; t += SLOT_STEP_MINUTES) {
+    const first = Math.ceil(interval.from / SLOT_STEP_MINUTES) * SLOT_STEP_MINUTES
+    for (let t = first; t + duration <= interval.to; t += SLOT_STEP_MINUTES) {
       starts.push(t)
     }
   }

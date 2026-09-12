@@ -335,10 +335,10 @@ npm run db:seed -- 09392738157 'your-password'
 ### How availability works
 
 Slots are **derived**, never stored. A weekday's spans become merged minute
-intervals at request time; start times are offered every 30 minutes **anchored
-to the span's own start**, and only where the whole session fits. A span
-beginning at 08:23 therefore offers 08:23, 08:53, 09:23… The schedule decides
-the grid, not the other way round — working hours accept any minute.
+intervals at request time; start times are offered every hour, on the hour,
+and only where the whole session fits. A span beginning at 08:23 first offers
+09:00. Working-hours boundaries may use any minute, but public booking starts
+are always on the hour.
 
 Touching spans are merged, so a session can cross the seam between 08:00–12:00
 and 12:00–16:00 instead of being stranded at the boundary. Editing the schedule
@@ -349,9 +349,8 @@ changes what visitors see instantly, with no backfill.
 Everything here is an interval, never a point in time. Three guards, in order
 of how much they can be trusted:
 
-1. **The picker** hides hours that clash with one already chosen — 16:30 and
-   17:00 are distinct starts, but as 60-minute sessions they are the same half
-   hour twice.
+1. **The picker** hides whole-hour starts that would clash with a selected
+   session, including a longer appointment.
 2. **The submit action** re-checks the chosen hours against each other and
    against the schedule, server-side.
 3. **The database** has the last word: `appointment_no_overlap` is a GiST

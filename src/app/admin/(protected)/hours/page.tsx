@@ -15,7 +15,7 @@ export default async function HoursPage() {
     <>
       <PageHeader
         title="ساعات کاری"
-        description={`برای هر روز هفته می‌توانید یک یا چند بازه تعریف کنید. ساعت را با چهار رقم پشت سر هم بنویسید — مثلاً ${toPersianDigits('0823')} برای ${toPersianDigits('08:23')}. نوبت‌ها از ابتدای هر بازه و در فواصل ${toPersianDigits(SLOT_STEP_MINUTES)} دقیقه‌ای ساخته می‌شوند.`}
+        description={`برای هر روز هفته می‌توانید یک یا چند بازه تعریف کنید. ساعت را با چهار رقم پشت سر هم بنویسید — مثلاً ${toPersianDigits('0823')} برای ${toPersianDigits('08:23')}. نوبت‌ها فقط در رأس ساعت و با فاصله ${toPersianDigits(SLOT_STEP_MINUTES)} دقیقه ساخته می‌شوند؛ برای نمایش ${toPersianDigits('16:00')}، بازه را از همان ساعت یا زودتر شروع کنید.`}
       />
       <HoursEditor hours={hours} />
     </>

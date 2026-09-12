@@ -123,9 +123,9 @@ export function DateTimePicker({
               <div className="grid grid-cols-2 gap-2">
                 {slots.map(({ slot, taken }) => {
                   const isPicked = times.includes(slot)
-                  // Two chosen hours must not run into each other: 16:30 and
-                  // 17:00 are separate starts, but as 60-minute sessions they
-                  // are the same half hour twice.
+                  // Keep this overlap guard even though public starts are on
+                  // the hour: session lengths can differ, and selections must
+                  // never run into one another.
                   const clashes = !isPicked && clashesWithPicked(slot)
                   const blocked = taken || clashes
                   return (

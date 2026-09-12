@@ -822,12 +822,12 @@ try {
     const [h, m] = faToEn(label).split(':')
     return Number(h) * 60 + Number(m)
   }
-  /** Index of the first hour that sits inside the previous one's session. */
-  const overlappingPair = (list) =>
-    list.findIndex((label, i) => i > 0 && atMinute(label) - atMinute(list[i - 1]) < 60)
+  /** Index of the second free slot after checking every start is on the hour. */
+  const wholeHourPair = (list) =>
+    list.length >= 3 && list.every((label) => atMinute(label) % 60 === 0) ? 1 : -1
 
   // Every run books real hours, so a fixed date fills up over time. Search
-  // forward for a day that still has room for two non-overlapping sessions
+  // forward for a day that still has room for two whole-hour sessions
   // rather than assuming one, walking each month from its last day back.
   let labels = []
   let adjacent = -1
@@ -838,8 +838,8 @@ try {
     for (let i = (await days.count()) - 1; i >= 0; i -= 1) {
       await days.nth(i).click()
       await pub.waitForTimeout(1500)
-      labels = await free.allInnerTexts()
-      adjacent = labels.length >= 3 ? overlappingPair(labels) : -1
+      labels = (await free.allInnerTexts()).sort((a, b) => atMinute(a) - atMinute(b))
+      adjacent = wholeHourPair(labels)
       if (adjacent >= 1) break
     }
   }
@@ -848,21 +848,22 @@ try {
   check('a future day has free hours', freeCount >= 3, `${freeCount} free`)
   const slotAt = (label) => pub.getByRole('button', { name: label, exact: true })
 
-  // Slots are offered every 30 minutes, so consecutive ones sit inside a single
-  // 60-minute session. Picking one has to rule the next one out — otherwise a
-  // visitor books 16:30 and 17:00 and the second session cannot happen.
-  check('offered hours include an overlapping pair', adjacent >= 1)
-  if (adjacent < 1) throw new Error('no day with two overlapping free hours was found')
+  // The public calendar must offer whole-hour starts only.
+  check(
+    'offered hours are whole hours',
+    labels.every((label) => atMinute(label) % 60 === 0)
+  )
+  if (adjacent < 1) throw new Error('no day with three free whole-hour slots was found')
 
   await slotAt(labels[adjacent - 1]).click()
   await pub.waitForTimeout(500)
   check(
-    'picking an hour rules out the one it overlaps',
-    await slotAt(labels[adjacent]).isDisabled(),
+    'picking an hour leaves the next whole hour available',
+    !(await slotAt(labels[adjacent]).isDisabled()),
     `${labels[adjacent - 1]} then ${labels[adjacent]}`
   )
 
-  // A second hour far enough away is still allowed.
+  // A second whole-hour slot is still allowed.
   const separate = labels.findLast(
     (label) => atMinute(label) - atMinute(labels[adjacent - 1]) >= 60
   )

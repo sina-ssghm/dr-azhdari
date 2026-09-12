@@ -186,8 +186,8 @@ export async function submitBookingAction(payload: SubmitPayload): Promise<Submi
       discountId = check.discount.id
     }
 
-    // The chosen hours must not run into each other. Two 60-minute sessions at
-    // 16:30 and 17:00 are distinct starts, so nothing else here would catch it.
+    // The chosen hours must not run into each other. This is rechecked on the
+    // server so a request that bypasses the picker cannot create an overlap.
     const starts = data.times.map(timeToMinutes).sort((a, b) => a - b)
     for (let i = 1; i < starts.length; i += 1) {
       if (starts[i]! - starts[i - 1]! < data.durationMin) {
