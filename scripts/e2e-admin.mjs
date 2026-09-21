@@ -871,7 +871,7 @@ try {
   await pub.waitForTimeout(800)
   check(
     'two hours selected on one day',
-    (await pub.getByText('۲ ساعت انتخاب شده').count()) > 0
+    (await pub.getByText('۲ نوبت در این روز').count()) > 0
   )
   await pub.screenshot({ path: `${out}/booking-live.png`, fullPage: true })
   await advance(900)
@@ -1009,7 +1009,7 @@ try {
   await pub.waitForTimeout(2000)
   check(
     'going back keeps the chosen hours',
-    (await pub.getByText('۲ ساعت انتخاب شده').count()) > 0
+    (await pub.getByText('۲ نوبت در این روز').count()) > 0
   )
   await advance(900)
   await advance(900)

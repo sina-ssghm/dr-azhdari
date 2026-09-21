@@ -9,7 +9,8 @@ import {
   SlotTakenError,
   type DaySlots,
 } from '@/server/appointments'
-import { bookingPage } from '@/content/booking-page'
+import { bookingLimits, bookingPage } from '@/content/booking-page'
+import { addMonths } from '@/lib/jalali'
 import { isPaymentId, PAYMENT_METHOD_IDS, priceFor } from '@/lib/payment'
 import { isValidPhone } from '@/lib/phone'
 import { timeToMinutes } from '@/lib/time'
@@ -131,12 +132,24 @@ export async function quoteBookingAction(input: {
 
 /* -------------------------------- submit -------------------------------- */
 
+/** One appointment: a day and a start time on it. Only these two vary. */
+const bookingSlot = z.object({ date: isoDate, time: clock })
+export type BookingSlot = z.infer<typeof bookingSlot>
+
 const submitSchema = z.object({
   serviceId,
   durationMin: z.number().int().positive(),
-  date: isoDate,
-  /** One or more start times on that day. */
-  times: z.array(clock).min(1, 'حداقل یک ساعت را انتخاب کنید.'),
+  /**
+   * One or more appointments, each its own day + time. The rest of the form
+   * (person, service, payment) is shared across all of them.
+   */
+  slots: z
+    .array(bookingSlot)
+    .min(1, 'حداقل یک نوبت را انتخاب کنید.')
+    .max(
+      bookingLimits.maxAppointments,
+      `حداکثر ${bookingLimits.maxAppointments} نوبت می‌توانید رزرو کنید.`
+    ),
   fullName: z.string().trim().min(2, 'نام و نام خانوادگی را وارد کنید.'),
   // The same per-country rules the field enforces, so a number cannot pass in
   // the browser and be rejected here — or the reverse.
@@ -174,7 +187,7 @@ export async function submitBookingAction(payload: SubmitPayload): Promise<Submi
     // session that nobody will ever be asked to pay for.
     if (unit <= 0) return { ok: false, error: bookingPage.summary.notSet }
 
-    const base = unit * data.times.length
+    const base = unit * data.slots.length
 
     let amount = base
     let discountId: number | null = null
@@ -186,28 +199,60 @@ export async function submitBookingAction(payload: SubmitPayload): Promise<Submi
       discountId = check.discount.id
     }
 
-    // The chosen hours must not run into each other. This is rechecked on the
-    // server so a request that bypasses the picker cannot create an overlap.
-    const starts = data.times.map(timeToMinutes).sort((a, b) => a - b)
-    for (let i = 1; i < starts.length; i += 1) {
-      if (starts[i]! - starts[i - 1]! < data.durationMin) {
-        return {
-          ok: false,
-          error:
-            'ساعت‌های انتخاب‌شده با یکدیگر هم‌پوشانی دارند. لطفاً ساعت‌های جدا از هم انتخاب کنید.',
-        }
+    // Every appointment must fall inside the booking window: not in the past,
+    // not further out than the far bound. Rechecked here so a request that
+    // bypasses the calendar cannot slip a date past it. The container runs
+    // Asia/Tehran, so the local parts of `now` are the practice's own day.
+    const now = new Date()
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const maxIso = addMonths(
+      new Date(`${todayIso}T12:00:00Z`),
+      bookingLimits.monthsAhead
+    )
+      .toISOString()
+      .slice(0, 10)
+
+    if (data.slots.some((s) => s.date < todayIso || s.date > maxIso)) {
+      return {
+        ok: false,
+        error: `فقط می‌توانید نوبت‌هایی تا ${bookingLimits.monthsAhead} ماه آینده رزرو کنید.`,
       }
     }
 
-    // Re-check every requested slot; the database constraint is the final guard.
-    const slots = await getDaySlots(data.date, undefined, data.durationMin)
-    for (const time of data.times) {
-      const slot = slots.find((s) => s.slot === time)
-      if (!slot || slot.taken) {
-        return {
-          ok: false,
-          error:
-            'یکی از ساعت‌های انتخاب‌شده دیگر در دسترس نیست. لطفاً دوباره انتخاب کنید.',
+    // Appointments are grouped by day: two on different days can never run into
+    // each other, so overlap and availability are checked one day at a time.
+    const byDate = new Map<string, string[]>()
+    for (const slot of data.slots) {
+      const list = byDate.get(slot.date) ?? []
+      list.push(slot.time)
+      byDate.set(slot.date, list)
+    }
+
+    for (const [date, times] of byDate) {
+      // The chosen hours on a day must not run into each other. Rechecked on
+      // the server so a request bypassing the picker cannot create an overlap;
+      // identical times collapse to a zero gap and are caught here too.
+      const starts = times.map(timeToMinutes).sort((a, b) => a - b)
+      for (let i = 1; i < starts.length; i += 1) {
+        if (starts[i]! - starts[i - 1]! < data.durationMin) {
+          return {
+            ok: false,
+            error:
+              'ساعت‌های انتخاب‌شده با یکدیگر هم‌پوشانی دارند. لطفاً ساعت‌های جدا از هم انتخاب کنید.',
+          }
+        }
+      }
+
+      // Re-check every requested slot; the database constraint is the final guard.
+      const slots = await getDaySlots(date, undefined, data.durationMin)
+      for (const time of times) {
+        const slot = slots.find((s) => s.slot === time)
+        if (!slot || slot.taken) {
+          return {
+            ok: false,
+            error:
+              'یکی از ساعت‌های انتخاب‌شده دیگر در دسترس نیست. لطفاً دوباره انتخاب کنید.',
+          }
         }
       }
     }
@@ -215,9 +260,9 @@ export async function submitBookingAction(payload: SubmitPayload): Promise<Submi
     const ref = await createBooking({
       serviceId: data.serviceId,
       durationMin: data.durationMin,
-      sessions: data.times.map((time) => ({
-        scheduledOn: data.date,
-        scheduledAt: time,
+      sessions: data.slots.map((slot) => ({
+        scheduledOn: slot.date,
+        scheduledAt: slot.time,
       })),
       fullName: data.fullName,
       phone: data.phone,

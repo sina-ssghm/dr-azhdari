@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { Quote } from '@/app/(site)/booking/actions'
+import type { BookingSlot, Quote } from '@/app/(site)/booking/actions'
 import type { Details } from '@/components/booking/details-form'
 import { bookingPage, type ServiceId } from '@/content/booking-page'
 import { Flag } from '@/components/ui/flag'
@@ -23,8 +23,7 @@ import { formatAmount, toPersianDigits } from '@/lib/utils'
 export function ReviewPanel({
   serviceId,
   durationMin,
-  date,
-  times,
+  slots,
   details,
   method,
   quote,
@@ -38,8 +37,7 @@ export function ReviewPanel({
 }: {
   serviceId: ServiceId
   durationMin: number
-  date: Date
-  times: string[]
+  slots: BookingSlot[]
   details: Details
   method: PaymentId
   quote: Quote | null
@@ -54,8 +52,17 @@ export function ReviewPanel({
   const copy = bookingPage.review
   const discountCopy = bookingPage.discount
   const service = bookingPage.service.options.find((o) => o.id === serviceId)
-  const when = describeDate(date)
   const region = paymentRegion(method)
+
+  // Grouped by day, in order, so several appointments read as a tidy list
+  // rather than one date with a run of times that belong to different days.
+  const byDate = new Map<string, string[]>()
+  for (const slot of slots) {
+    const list = byDate.get(slot.date) ?? []
+    list.push(slot.time)
+    byDate.set(slot.date, list)
+  }
+  const days = [...byDate.entries()]
 
   const regionLabel = bookingPage.payment.regions.find((r) => r.id === region)?.title
   const methodLabel = bookingPage.payment.methods.find((m) => m.id === method)?.title
@@ -96,14 +103,28 @@ export function ReviewPanel({
             {toPersianDigits(bookingPage.duration.label(durationMin))}
           </Row>
           <Row label={copy.sessions}>
-            <span className="block text-end">
-              {toPersianDigits(`${when.weekday} ${when.full}`)}
-            </span>
-            <span className="mt-1 block text-end">
-              ساعت{' '}
-              <span dir="ltr" className="tabular-nums">
-                {times.map((time) => toPersianDigits(time)).join(' ، ')}
-              </span>
+            <span className="flex flex-col gap-2">
+              {days.map(([date, times]) => {
+                const when = describeDate(new Date(`${date}T12:00:00Z`))
+                return (
+                  <span key={date} className="block text-end">
+                    <span className="block">
+                      {toPersianDigits(`${when.weekday} ${when.full}`)}
+                    </span>
+                    <span className="mt-0.5 block">
+                      ساعت{' '}
+                      <span dir="ltr" className="tabular-nums">
+                        {times.map((time) => toPersianDigits(time)).join(' ، ')}
+                      </span>
+                    </span>
+                  </span>
+                )
+              })}
+              {slots.length > 1 ? (
+                <span className="text-ink-400 block text-end text-[0.75rem]">
+                  {toPersianDigits(bookingPage.datetime.selected(slots.length))}
+                </span>
+              ) : null}
             </span>
           </Row>
           <Row label={copy.name}>{details.name}</Row>

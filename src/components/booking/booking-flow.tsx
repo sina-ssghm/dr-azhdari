@@ -1,10 +1,18 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useLayoutEffect, useRef, useState, useTransition } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from 'react'
 import {
   quoteBookingAction,
   submitBookingAction,
+  type BookingSlot,
   type Quote,
 } from '@/app/(site)/booking/actions'
 import { LockIcon } from '@/components/icons'
@@ -16,9 +24,19 @@ import { ReviewPanel } from '@/components/booking/review-panel'
 import { ServicePicker } from '@/components/booking/service-picker'
 import { WizardNav } from '@/components/booking/wizard-nav'
 import { Container } from '@/components/ui/container'
-import { bookingPage, type PaymentRegion, type ServiceId } from '@/content/booking-page'
+import {
+  bookingLimits,
+  bookingPage,
+  type PaymentRegion,
+  type ServiceId,
+} from '@/content/booking-page'
+import { addMonths, today } from '@/lib/jalali'
 import type { PaymentId } from '@/lib/payment'
 import { isValidPhone } from '@/lib/phone'
+
+/** Orders appointments day-first, then by start time. */
+const byDateTime = (a: BookingSlot, b: BookingSlot) =>
+  a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date)
 
 const EMPTY_DETAILS: Details = { name: '', phone: '', email: '', notes: '' }
 
@@ -44,8 +62,11 @@ export function BookingFlow({ openWeekdays }: { openWeekdays: number[] }) {
 
   const [service, setService] = useState<ServiceId | null>(null)
   const [duration, setDuration] = useState<number | null>(null)
-  const [date, setDate] = useState<Date | null>(null)
-  const [times, setTimes] = useState<string[]>([])
+  // The calendar cursor — which day's hours are on show. Not part of the
+  // booking; the chosen appointments live in `slots` and persist as the
+  // visitor moves between days.
+  const [viewDate, setViewDate] = useState<Date | null>(null)
+  const [slots, setSlots] = useState<BookingSlot[]>([])
   const [details, setDetails] = useState<Details>(EMPTY_DETAILS)
   const [region, setRegion] = useState<PaymentRegion | null>(null)
   const [method, setMethod] = useState<PaymentId | null>(null)
@@ -55,10 +76,28 @@ export function BookingFlow({ openWeekdays }: { openWeekdays: number[] }) {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  // The far bound of the booking window, fixed for the visit. `today()` reads
+  // the client clock after mount, so it never disagrees with the server day by
+  // more than the request's own latency.
+  const maxDate = useMemo(() => addMonths(today(), bookingLimits.monthsAhead), [])
+  const atMax = slots.length >= bookingLimits.maxAppointments
+
+  /** Add or drop one appointment, keeping the list ordered and within the cap. */
+  const toggleSlot = (slotDate: string, time: string) =>
+    setSlots((prev) => {
+      const i = prev.findIndex((s) => s.date === slotDate && s.time === time)
+      if (i !== -1) return prev.filter((_, j) => j !== i)
+      if (prev.length >= bookingLimits.maxAppointments) return prev
+      return [...prev, { date: slotDate, time }].sort(byDateTime)
+    })
+
+  const removeSlot = (slotDate: string, time: string) =>
+    setSlots((prev) => prev.filter((s) => !(s.date === slotDate && s.time === time)))
+
   /** One gate per step, in step order. */
   const gates = [
     service !== null && duration !== null,
-    date !== null && times.length > 0,
+    slots.length > 0,
     details.name.trim().length >= 2 && isValidPhone(details.phone),
     method !== null,
   ]
@@ -78,7 +117,7 @@ export function BookingFlow({ openWeekdays }: { openWeekdays: number[] }) {
     void quoteBookingAction({
       serviceId: service,
       durationMin: duration,
-      sessions: times.length,
+      sessions: slots.length,
       paymentMethod: method,
       discountCode,
     }).then((next) => {
@@ -87,7 +126,7 @@ export function BookingFlow({ openWeekdays }: { openWeekdays: number[] }) {
     return () => {
       live = false
     }
-  }, [step, service, duration, times.length, method, discountCode])
+  }, [step, service, duration, slots.length, method, discountCode])
 
   /**
    * Put the new step at the top of the screen.
@@ -140,7 +179,7 @@ export function BookingFlow({ openWeekdays }: { openWeekdays: number[] }) {
       setError(gateErrors[failed] ?? null)
       return setStep(failed)
     }
-    if (!service || !duration || !date || !method) return
+    if (!service || !duration || slots.length === 0 || !method) return
 
     setError(null)
     setSubmitting(true)
@@ -149,8 +188,7 @@ export function BookingFlow({ openWeekdays }: { openWeekdays: number[] }) {
       const result = await submitBookingAction({
         serviceId: service,
         durationMin: duration,
-        date: date.toISOString().slice(0, 10),
-        times,
+        slots,
         fullName: details.name,
         phone: details.phone,
         email: details.email,
@@ -172,32 +210,29 @@ export function BookingFlow({ openWeekdays }: { openWeekdays: number[] }) {
       duration={duration}
       onChange={(nextService) => {
         setService(nextService)
-        // Both the length and the free hours depend on the service.
+        // Both the length and the free hours depend on the service, so the
+        // chosen appointments no longer stand.
         const option = bookingPage.service.options.find((o) => o.id === nextService)
         setDuration(option?.durations.length === 1 ? option.durations[0]! : null)
-        setTimes([])
+        setSlots([])
         setDiscountCode('')
       }}
       onDurationChange={(minutes) => {
         setDuration(minutes)
-        setTimes([])
+        setSlots([])
       }}
     />,
     <DateTimePicker
       key="datetime"
-      date={date}
-      times={times}
+      viewDate={viewDate}
+      slots={slots}
       durationMin={duration}
       openWeekdays={openWeekdays}
-      onSelectDate={(nextDate) => {
-        setDate(nextDate)
-        setTimes([])
-      }}
-      onToggleTime={(time) =>
-        setTimes((prev) =>
-          prev.includes(time) ? prev.filter((t) => t !== time) : [...prev, time].sort()
-        )
-      }
+      maxDate={maxDate}
+      atMax={atMax}
+      onSelectDate={setViewDate}
+      onToggleSlot={toggleSlot}
+      onRemoveSlot={removeSlot}
     />,
     <DetailsForm key="details" value={details} onChange={setDetails} />,
     <PaymentPicker
@@ -228,12 +263,11 @@ export function BookingFlow({ openWeekdays }: { openWeekdays: number[] }) {
           <BookingSteps completed={gates} current={step} onJump={goTo} />
         </div>
 
-        {step === REVIEW && service && duration && date && method ? (
+        {step === REVIEW && service && duration && slots.length > 0 && method ? (
           <ReviewPanel
             serviceId={service}
             durationMin={duration}
-            date={date}
-            times={times}
+            slots={slots}
             details={details}
             method={method}
             quote={quote}

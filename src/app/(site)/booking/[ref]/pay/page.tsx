@@ -37,7 +37,16 @@ export default async function PayPage({ params }: { params: Promise<{ ref: strin
   const isCard = isCardPayment(first.paymentMethod)
   const currency = first.currency ?? (isCard ? 'IRT' : 'USDT')
   const amount = booking.find((b) => b.amount !== null)?.amount ?? 0
-  const when = describeDate(new Date(`${first.scheduledOn}T12:00:00Z`))
+
+  // A booking can hold several appointments on different days. Group by day so
+  // each date carries its own hours instead of pinning them all to the first.
+  const byDate = new Map<string, string[]>()
+  for (const b of booking) {
+    const list = byDate.get(b.scheduledOn) ?? []
+    list.push(b.scheduledAt)
+    byDate.set(b.scheduledOn, list)
+  }
+  const days = [...byDate.entries()]
 
   const configured = isCard
     ? Boolean(settings.card_number || settings.card_sheba)
@@ -76,12 +85,19 @@ export default async function PayPage({ params }: { params: Promise<{ ref: strin
               </div>
               <div className="flex justify-between gap-3 sm:block">
                 <dt className="text-ink-400">{bookingPage.review.sessions}</dt>
-                <dd className="text-ink-900 sm:mt-1">
-                  {toPersianDigits(`${when.weekday} ${when.full}`)}
-                  {' — ساعت '}
-                  <span dir="ltr" className="tabular-nums">
-                    {booking.map((b) => toPersianDigits(b.scheduledAt)).join(' ، ')}
-                  </span>
+                <dd className="text-ink-900 flex flex-col gap-1.5 sm:mt-1">
+                  {days.map(([date, times]) => {
+                    const when = describeDate(new Date(`${date}T12:00:00Z`))
+                    return (
+                      <span key={date}>
+                        {toPersianDigits(`${when.weekday} ${when.full}`)}
+                        {' — ساعت '}
+                        <span dir="ltr" className="tabular-nums">
+                          {times.map((t) => toPersianDigits(t)).join(' ، ')}
+                        </span>
+                      </span>
+                    )
+                  })}
                 </dd>
               </div>
             </dl>

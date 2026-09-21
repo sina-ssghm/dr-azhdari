@@ -62,6 +62,23 @@ export function addDays(date: Date, days: number): Date {
   return next
 }
 
+/**
+ * `date` shifted by whole Gregorian months, clamped to the target month's last
+ * day so adding a month to the 31st never rolls into the next one. Used for the
+ * booking window's far bound; the same rule runs on the server.
+ */
+export function addMonths(date: Date, months: number): Date {
+  const next = new Date(date.getTime())
+  const day = next.getUTCDate()
+  next.setUTCDate(1)
+  next.setUTCMonth(next.getUTCMonth() + months)
+  const lastDay = new Date(
+    Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)
+  ).getUTCDate()
+  next.setUTCDate(Math.min(day, lastDay))
+  return next
+}
+
 /** Today, normalised to 12:00 UTC. Call on the client — never at build time. */
 export function today(): Date {
   const now = new Date()

@@ -7,6 +7,17 @@ import type { IconName } from '@/components/icons'
  * everything else stays put.
  * ------------------------------------------------------------------ */
 
+/**
+ * Bounds on a single booking. A visitor books the same service, for the same
+ * person, at up to `maxAppointments` different date/times, none more than
+ * `monthsAhead` months out. Read by the client (calendar cap, add guard) and
+ * re-enforced on the server, so the two never drift.
+ */
+export const bookingLimits = {
+  maxAppointments: 10,
+  monthsAhead: 3,
+} as const
+
 export const bookingPage = {
   title: 'رزرو جلسه مشاوره',
   subtitle: 'در چند مرحله ساده وقت مشاوره خود را رزرو کنید',
@@ -66,10 +77,17 @@ export const bookingPage = {
   datetime: {
     title: 'تاریخ و زمان را انتخاب کنید',
     description:
-      'یک روز را انتخاب کنید، سپس می‌توانید یک یا چند ساعت را در همان روز رزرو کنید.',
+      'یک روز را از تقویم انتخاب کنید و ساعت دلخواه را بزنید. می‌توانید تا ۱۰ نوبت (حداکثر تا ۳ ماه آینده) را در همین صفحه رزرو کنید؛ برای افزودن نوبت بیشتر، روز یا ساعت دیگری را انتخاب کنید.',
     emptyDay: 'برای دیدن ساعت‌های آزاد، یک روز را از تقویم انتخاب کنید.',
-    selected: (count: number) => `${count} ساعت انتخاب شده`,
+    selected: (count: number) => `${count} نوبت انتخاب شده`,
     pickDuration: 'ابتدا مدت جلسه را انتخاب کنید.',
+    /** The running list of chosen appointments, below the time grid. */
+    listTitle: 'نوبت‌های انتخاب‌شده',
+    addHint: 'برای افزودن نوبت بیشتر، روز یا ساعت دیگری را انتخاب کنید.',
+    maxReached: (max: number) =>
+      `به حداکثر تعداد نوبت (${max}) رسیدید. برای افزودن نوبت جدید، ابتدا یکی را حذف کنید.`,
+    emptyList: 'هنوز نوبتی انتخاب نکرده‌اید.',
+    remove: 'حذف نوبت',
   },
 
   details: {
