@@ -62,6 +62,15 @@ export const bookingPage = {
         notice:
           'برگزاری جلسه هیپنوتراپی نیازمند تشخیص پزشک می‌باشد. لطفاً در ابتدا نوبت مشاوره فردی رزرو کنید.',
       },
+      {
+        id: 'psychoanalysis',
+        icon: 'brain' satisfies IconName,
+        title: 'روانکاوی',
+        description:
+          'کاوش ناخودآگاه، حل تعارض‌های ریشه‌ای و شناخت عمیق الگوهای رفتاری',
+        durations: [60],
+        notice: null,
+      },
     ],
   },
 
